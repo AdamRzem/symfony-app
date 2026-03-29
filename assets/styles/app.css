@@ -1,3 +1,62 @@
+* {
+    box-sizing: border-box;
+}
+
 body {
-    background-color: skyblue;
+    margin: 0;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(145deg, #f2f8ff 0%, #e6f2ff 100%);
+    color: #1f2937;
+}
+
+.page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+}
+
+.counter-card {
+    width: min(100%, 420px);
+    background: #ffffff;
+    border: 1px solid #dbeafe;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.counter-card h1 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.help {
+    margin: 0.5rem 0 1.2rem;
+    color: #475569;
+}
+
+.count {
+    font-size: 3rem;
+    font-weight: 700;
+    margin: 0 0 1rem;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.actions button {
+    border: 0;
+    border-radius: 10px;
+    padding: 0.6rem 0.9rem;
+    background: #2563eb;
+    color: #ffffff;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.actions button:hover {
+    background: #1d4ed8;
 }

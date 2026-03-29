@@ -1,0 +1,20 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Simple Counter{% endblock %}
+
+{% block body %}
+    <main class="page">
+        <section class="counter-card" data-controller="counter" data-counter-initial-value-value="{{ initialCount }}">
+            <h1>Symfony Counter</h1>
+            <p class="help">A basic page using Twig + Stimulus.</p>
+
+            <p class="count" data-counter-target="value">{{ initialCount }}</p>
+
+            <div class="actions">
+                <button type="button" data-action="counter#decrement">-1</button>
+                <button type="button" data-action="counter#increment">+1</button>
+                <button type="button" data-action="counter#reset">Reset</button>
+            </div>
+        </section>
+    </main>
+{% endblock %}
