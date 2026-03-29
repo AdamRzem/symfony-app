@@ -5,6 +5,10 @@ framework:
     # Note that the session will be started ONLY if you read or write from it.
     session: true
 
+    request:
+        formats:
+            json: ['application/json', 'application/*+json']
+
     #esi: true
     #fragments: true
 

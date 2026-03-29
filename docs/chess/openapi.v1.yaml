@@ -1,0 +1,292 @@
+openapi: 3.1.0
+info:
+  title: Chess Local API
+  version: 1.0.0
+  description: Contract-first API for local chess MVP with Stockfish as AI engine.
+servers:
+  - url: http://127.0.0.1:8000
+paths:
+  /api/v1/games:
+    post:
+      summary: Create a new game vs AI
+      operationId: createGame
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGameRequest'
+      responses:
+        '201':
+          description: Game created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+        '400':
+          description: Invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/games/{gameId}:
+    get:
+      summary: Get current game state
+      operationId: getGame
+      parameters:
+        - $ref: '#/components/parameters/GameId'
+      responses:
+        '200':
+          description: Game state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/games/{gameId}/moves:
+    post:
+      summary: Apply player move
+      operationId: makeMove
+      parameters:
+        - $ref: '#/components/parameters/GameId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MakeMoveRequest'
+      responses:
+        '200':
+          description: Move accepted and game updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+        '400':
+          description: Bad payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Game already finished
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Illegal move
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: Get move history
+      operationId: listMoves
+      parameters:
+        - $ref: '#/components/parameters/GameId'
+      responses:
+        '200':
+          description: Move list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [moves]
+                properties:
+                  moves:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Move'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/games/{gameId}/ai-move:
+    post:
+      summary: Apply AI move
+      operationId: makeAiMove
+      parameters:
+        - $ref: '#/components/parameters/GameId'
+      responses:
+        '200':
+          description: AI move accepted and game updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Game already finished
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: AI has no legal move
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: AI engine is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/engine/health:
+    get:
+      summary: Check AI engine readiness
+      operationId: getEngineHealth
+      responses:
+        '200':
+          description: Engine is reachable and ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EngineHealthResponse'
+        '503':
+          description: Engine is not available or not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  parameters:
+    GameId:
+      name: gameId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    CreateGameRequest:
+      type: object
+      properties:
+        aiColor:
+          type: string
+          enum: [white, black]
+      additionalProperties: false
+    MakeMoveRequest:
+      type: object
+      required: [uciMove]
+      properties:
+        uciMove:
+          type: string
+          pattern: '^[a-h][1-8][a-h][1-8][qrbn]?$'
+          example: e2e4
+      additionalProperties: false
+    GameResponse:
+      type: object
+      required: [id, fen, turn, status, result, aiColor, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        fen:
+          type: string
+        turn:
+          type: string
+          enum: [white, black]
+        status:
+          type: string
+          enum: [in_progress, check, checkmate, stalemate, draw, resigned]
+        result:
+          type: string
+          enum: [ongoing, white_win, black_win, draw]
+        aiColor:
+          type: string
+          enum: [white, black]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        lastMove:
+          oneOf:
+            - $ref: '#/components/schemas/Move'
+            - type: 'null'
+      additionalProperties: false
+    Move:
+      type: object
+      required: [id, ply, uci, fenAfter, isCheck, isCheckmate, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        ply:
+          type: integer
+          minimum: 1
+        uci:
+          type: string
+        promotion:
+          oneOf:
+            - type: string
+              enum: [q, r, b, n]
+            - type: 'null'
+        san:
+          oneOf:
+            - type: string
+            - type: 'null'
+        fenAfter:
+          type: string
+        isCheck:
+          type: boolean
+        isCheckmate:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [INVALID_MOVE, GAME_FINISHED, GAME_NOT_FOUND, BAD_PAYLOAD, ENGINE_UNAVAILABLE, ENGINE_FAILURE]
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+      additionalProperties: false
+    EngineHealthResponse:
+      type: object
+      required: [engine, status]
+      properties:
+        engine:
+          type: string
+          enum: [stockfish]
+        status:
+          type: string
+          enum: [ready]
+        binaryPath:
+          type: string
+        version:
+          type: string
+      additionalProperties: false
