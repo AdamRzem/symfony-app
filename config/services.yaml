@@ -29,5 +29,14 @@ services:
             $moveTimeMs: '%app.chess.stockfish_move_time_ms%'
             $skillLevel: '%app.chess.stockfish_skill%'
 
+    App\Chess\Engine\StockfishClient:
+        arguments:
+            $binaryPath: '%app.chess.stockfish_path%'
+            $defaultMoveTimeMs: '%app.chess.stockfish_move_time_ms%'
+            $skillLevel: '%app.chess.stockfish_skill%'
+
+    App\Chess\Rules\ChessRulesEngineInterface: '@App\Chess\Rules\StockfishRulesEngine'
+    App\Chess\Ai\ChessAiEngineInterface: '@App\Chess\Ai\StockfishAiEngine'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
