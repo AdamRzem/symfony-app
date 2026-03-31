@@ -7,6 +7,7 @@ namespace App\Chess;
 use App\Chess\Ai\ChessAiEngineInterface;
 use App\Chess\Ai\AiMoveResult;
 use App\Chess\Exception\EngineFailureException;
+use App\Chess\Exception\GameFinishedException;
 use App\Chess\Exception\InvalidMoveException;
 use App\Chess\Rules\ChessRulesEngineInterface;
 use App\Chess\Rules\MoveValidationResult;
@@ -74,7 +75,7 @@ final class GameFlowService
     private function guardGameNotFinished(Game $game): void
     {
         if ($this->isTerminalStatus($game->getStatus())) {
-            throw new InvalidMoveException(sprintf('Game is finished with status %s.', $game->getStatus()->value));
+            throw new GameFinishedException(sprintf('Game is finished with status %s.', $game->getStatus()->value));
         }
     }
 
