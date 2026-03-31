@@ -12,7 +12,7 @@ Build a local chess application with:
 
 ## Current Status
 - [x] Phase 1: Domain and API contract
-- [ ] Phase 2: Persistence and migrations
+- [x] Phase 2: Persistence and migrations
 - [ ] Phase 3: Rules engine and AI move flow
 - [ ] Phase 4: REST controllers and app services
 - [ ] Phase 5: Web UI (board, move list, game status)
