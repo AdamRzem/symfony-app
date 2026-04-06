@@ -130,6 +130,33 @@ final class GameControllerTest extends WebTestCase
         self::assertSame('BAD_PAYLOAD', $response['error']['code']);
     }
 
+    public function testCreateRejectsUnknownField(): void
+    {
+        $error = $this->requestJson($this->client, 'POST', '/api/v1/games', [
+            'aiColor' => 'black',
+            'unexpected' => true,
+        ]);
+
+        self::assertSame(400, $this->client->getResponse()->getStatusCode());
+        self::assertSame('BAD_PAYLOAD', $error['error']['code']);
+    }
+
+    public function testMoveRejectsUnknownFieldEvenWhenUciPresent(): void
+    {
+        $createPayload = $this->requestJson($this->client, 'POST', '/api/v1/games', [
+            'aiColor' => 'black',
+        ]);
+        $gameId = $createPayload['id'];
+
+        $error = $this->requestJson($this->client, 'POST', sprintf('/api/v1/games/%s/moves', $gameId), [
+            'uciMove' => 'e2e4',
+            'unexpected' => true,
+        ]);
+
+        self::assertSame(400, $this->client->getResponse()->getStatusCode());
+        self::assertSame('BAD_PAYLOAD', $error['error']['code']);
+    }
+
     /**
      * @param array<string, mixed>|null $payload
      *

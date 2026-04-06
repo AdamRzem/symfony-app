@@ -29,6 +29,7 @@ final class GameController
     public function create(Request $request): JsonResponse
     {
         $payload = $this->decodeJsonBody($request, true);
+        $this->assertAllowedKeys($payload, ['aiColor']);
         $dto = new CreateGameRequest($payload['aiColor'] ?? null);
         $this->validateOrFail($dto);
 
@@ -49,6 +50,7 @@ final class GameController
     public function makeMove(string $gameId, Request $request): JsonResponse
     {
         $payload = $this->decodeJsonBody($request, false);
+        $this->assertAllowedKeys($payload, ['uciMove']);
         $dto = new MakeMoveRequest((string) ($payload['uciMove'] ?? ''));
         $this->validateOrFail($dto);
 
@@ -99,6 +101,21 @@ final class GameController
         }
 
         return $decoded;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param list<string> $allowedKeys
+     */
+    private function assertAllowedKeys(array $payload, array $allowedKeys): void
+    {
+        $unknownKeys = array_values(array_diff(array_keys($payload), $allowedKeys));
+
+        if ([] === $unknownKeys) {
+            return;
+        }
+
+        throw new BadPayloadException(sprintf('Unknown field(s): %s.', implode(', ', $unknownKeys)));
     }
 
     private function validateOrFail(object $dto): void
