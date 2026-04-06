@@ -81,12 +81,14 @@ final class ApiExceptionSubscriber implements EventSubscriberInterface
                 'ENGINE_FAILURE',
                 $throwable->getMessage(),
             ),
-            default => null,
+            default => $this->createErrorResponse(
+                JsonResponse::HTTP_INTERNAL_SERVER_ERROR,
+                'ENGINE_FAILURE',
+                'Unexpected server error.',
+            ),
         };
 
-        if ($response instanceof JsonResponse) {
-            $event->setResponse($response);
-        }
+        $event->setResponse($response);
     }
 
     /**
