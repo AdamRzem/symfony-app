@@ -19,4 +19,3 @@
 /assets/vendor/
 ###< symfony/asset-mapper ###
 .github/prompts/plan-chessRestApi.prompt.md
-.gitignore

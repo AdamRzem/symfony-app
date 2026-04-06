@@ -1,0 +1,42 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Chess Board{% endblock %}
+
+{% block body %}
+    <main class="chess-page" data-controller="chess-board" data-chess-board-api-base-value="{{ apiBase }}">
+        <section class="chess-board-panel">
+            <div class="chess-board-header">
+                <h1>Chess</h1>
+                <p>Play locally against Stockfish.</p>
+            </div>
+
+            <div class="chess-controls">
+                <label>
+                    AI color
+                    <select data-chess-board-target="aiColor">
+                        <option value="black" selected>Black</option>
+                        <option value="white">White</option>
+                    </select>
+                </label>
+                <button type="button" data-action="chess-board#createGame">New game</button>
+                <button type="button" data-action="chess-board#makeAiMove" data-chess-board-target="aiMoveButton" disabled>AI move</button>
+            </div>
+
+            <div class="chess-meta">
+                <p><strong>Game:</strong> <span data-chess-board-target="gameId">none</span></p>
+                <p><strong>Turn:</strong> <span data-chess-board-target="turn">-</span></p>
+                <p><strong>Status:</strong> <span data-chess-board-target="status">not_started</span></p>
+                <p><strong>Result:</strong> <span data-chess-board-target="result">ongoing</span></p>
+            </div>
+
+            <div class="chess-board" data-chess-board-target="board"></div>
+        </section>
+
+        <aside class="chess-side-panel">
+            <h2>Moves</h2>
+            <ol data-chess-board-target="moves"></ol>
+            <p class="chess-error" data-chess-board-target="error"></p>
+            <p class="chess-fen" data-chess-board-target="fen"></p>
+        </aside>
+    </main>
+{% endblock %}

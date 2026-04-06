@@ -60,3 +60,161 @@ body {
 .actions button:hover {
     background: #1d4ed8;
 }
+
+.next-step {
+    margin-top: 1rem;
+}
+
+.next-step a {
+    color: #1d4ed8;
+    font-weight: 600;
+}
+
+.chess-page {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: minmax(320px, 560px) minmax(260px, 360px);
+    gap: 1rem;
+    padding: 1rem;
+    align-items: start;
+}
+
+.chess-board-panel,
+.chess-side-panel {
+    background: #ffffff;
+    border: 1px solid #dbeafe;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    padding: 1rem;
+}
+
+.chess-board-header h1 {
+    margin: 0;
+}
+
+.chess-board-header p {
+    margin-top: 0.3rem;
+    color: #475569;
+}
+
+.chess-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin: 1rem 0;
+}
+
+.chess-controls label {
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.9rem;
+}
+
+.chess-controls select,
+.chess-controls button {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 0.5rem 0.7rem;
+    background: #ffffff;
+}
+
+.chess-controls button {
+    background: #2563eb;
+    border: 0;
+    color: #ffffff;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.chess-controls button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.chess-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.2rem 0.75rem;
+    margin-bottom: 0.8rem;
+}
+
+.chess-meta p {
+    margin: 0;
+    font-size: 0.92rem;
+}
+
+.chess-board {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(34px, 1fr));
+    border: 2px solid #334155;
+}
+
+.chess-square {
+    aspect-ratio: 1;
+    border: 0;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    align-items: start;
+    justify-items: start;
+    padding: 0.2rem;
+    cursor: pointer;
+}
+
+.chess-square.light {
+    background: #f8fafc;
+}
+
+.chess-square.dark {
+    background: #cbd5e1;
+}
+
+.chess-square.selected {
+    outline: 3px solid #2563eb;
+    outline-offset: -3px;
+}
+
+.chess-square-name {
+    font-size: 0.65rem;
+    color: #475569;
+}
+
+.chess-piece {
+    width: 100%;
+    display: grid;
+    place-items: center;
+    font-size: 1.05rem;
+    font-weight: 700;
+    align-self: center;
+}
+
+.chess-side-panel h2 {
+    margin: 0 0 0.75rem;
+}
+
+.chess-side-panel ol {
+    margin: 0;
+    padding-left: 1rem;
+    display: grid;
+    gap: 0.35rem;
+    max-height: 360px;
+    overflow: auto;
+}
+
+.chess-error {
+    min-height: 1.2rem;
+    color: #b91c1c;
+    margin: 0.9rem 0 0;
+}
+
+.chess-fen {
+    margin: 0.6rem 0 0;
+    font-size: 0.82rem;
+    color: #475569;
+    word-break: break-all;
+}
+
+@media (max-width: 900px) {
+    .chess-page {
+        grid-template-columns: 1fr;
+    }
+}

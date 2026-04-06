@@ -2,7 +2,7 @@
 
 Local non-commercial chess project built with Symfony, focused on a contract-first backend and a minimal web UI.
 
-Next phases will be implemented after Easter
+Next phases will be implemented after Easte
 
 ## Goal
 Build a local chess application with:
@@ -17,7 +17,7 @@ Build a local chess application with:
 - [x] Phase 2: Persistence and migrations
 - [x] Phase 3: Rules engine and AI move flow
 - [x] Phase 4: REST controllers and app services
-- [ ] Phase 5: Web UI (board, move list, game status)
+- [x] Phase 5: Web UI (board, move list, game status)
 - [ ] Phase 6: Unit/integration/functional tests
 
 ## Phase 1 Deliverables
