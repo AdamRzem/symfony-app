@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Chess\Ai;
 
 use Symfony\Component\Process\Exception\ProcessFailedException;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
 final class StockfishHealthChecker
@@ -49,6 +50,10 @@ final class StockfishHealthChecker
 
         try {
             $process->mustRun();
+        } catch (ProcessTimedOutException $exception) {
+            $errors[] = sprintf('Stockfish process timed out: %s', $exception->getMessage());
+
+            return $this->buildReport('unavailable', null, $errors);
         } catch (ProcessFailedException $exception) {
             $errors[] = sprintf('Stockfish process failed: %s', $exception->getMessage());
 

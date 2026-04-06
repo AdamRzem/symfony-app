@@ -7,6 +7,7 @@ namespace App\Chess\Engine;
 use App\Chess\Exception\EngineFailureException;
 use App\Chess\Exception\EngineUnavailableException;
 use Symfony\Component\Process\Exception\ProcessFailedException;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
 final class StockfishClient
@@ -117,6 +118,12 @@ final class StockfishClient
 
         try {
             $process->mustRun();
+        } catch (ProcessTimedOutException $exception) {
+            throw new EngineUnavailableException(
+                sprintf('Stockfish process timed out: %s', $exception->getMessage()),
+                0,
+                $exception,
+            );
         } catch (ProcessFailedException $exception) {
             throw new EngineUnavailableException(
                 sprintf('Stockfish process failed: %s', $exception->getMessage()),
