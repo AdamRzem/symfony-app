@@ -8,6 +8,7 @@ use App\Chess\Ai\ChessAiEngineInterface;
 use App\Chess\Ai\StockfishAiEngine;
 use App\Chess\Ai\StockfishHealthChecker;
 use App\Chess\Engine\StockfishClient;
+use App\Chess\Exception\InvalidMoveException;
 use App\Chess\GameFlowService;
 use App\Chess\Rules\ChessRulesEngineInterface;
 use App\Chess\Rules\StockfishRulesEngine;
@@ -76,5 +77,15 @@ final class Phase3IntegrationTest extends TestCase
         self::assertNotNull($aiMove);
         self::assertSame(2, $aiMove->getPly());
         self::assertSame(Side::White, $game->getTurn());
+    }
+
+    public function testGameFlowRejectsPlayerMoveWhenAiStartsAsWhite(): void
+    {
+        $game = new Game(Side::White);
+
+        $this->expectException(InvalidMoveException::class);
+        $this->expectExceptionMessage('It is not player turn.');
+
+        $this->gameFlowService->applyPlayerMove($game, 'e2e4');
     }
 }

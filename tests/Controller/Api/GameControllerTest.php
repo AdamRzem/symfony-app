@@ -95,6 +95,21 @@ final class GameControllerTest extends WebTestCase
         self::assertSame('INVALID_MOVE', $error['error']['code']);
     }
 
+    public function testPlayerMoveRejectedWhenAiStartsAsWhite(): void
+    {
+        $createPayload = $this->requestJson($this->client, 'POST', '/api/v1/games', [
+            'aiColor' => 'white',
+        ]);
+        $gameId = $createPayload['id'];
+
+        $error = $this->requestJson($this->client, 'POST', sprintf('/api/v1/games/%s/moves', $gameId), [
+            'uciMove' => 'e2e4',
+        ]);
+
+        self::assertSame(422, $this->client->getResponse()->getStatusCode());
+        self::assertSame('INVALID_MOVE', $error['error']['code']);
+    }
+
     public function testBadPayloadReturns400(): void
     {
         $createPayload = $this->requestJson($this->client, 'POST', '/api/v1/games', [

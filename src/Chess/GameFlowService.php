@@ -30,6 +30,10 @@ final class GameFlowService
     {
         $this->guardGameNotFinished($game);
 
+        if ($game->getTurn() === $game->getAiColor()) {
+            throw new InvalidMoveException('It is not player turn.');
+        }
+
         $moverSide = $game->getTurn();
         $validation = $this->rulesEngine->validateMove($game->getFen(), $uciMove);
 
