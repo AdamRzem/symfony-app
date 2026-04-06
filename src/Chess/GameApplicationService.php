@@ -10,6 +10,7 @@ use App\Entity\Game;
 use App\Entity\Move;
 use App\Repository\GameRepository;
 use App\Repository\MoveRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 
 final class GameApplicationService
@@ -58,41 +59,47 @@ final class GameApplicationService
 
     public function makeMove(string $gameId, string $uciMove): Game
     {
-        $game = $this->getGame($gameId);
-
         $connection = $this->entityManager->getConnection();
         $connection->beginTransaction();
 
         try {
+            $game = $this->getGame($gameId);
+            $this->entityManager->lock($game, LockMode::PESSIMISTIC_WRITE);
+
             $this->gameFlowService->applyPlayerMove($game, $uciMove);
             $this->entityManager->flush();
             $connection->commit();
+
+            return $game;
         } catch (\Throwable $exception) {
-            $connection->rollBack();
+            if ($connection->isTransactionActive()) {
+                $connection->rollBack();
+            }
 
             throw $exception;
         }
-
-        return $game;
     }
 
     public function makeAiMove(string $gameId): Game
     {
-        $game = $this->getGame($gameId);
-
         $connection = $this->entityManager->getConnection();
         $connection->beginTransaction();
 
         try {
+            $game = $this->getGame($gameId);
+            $this->entityManager->lock($game, LockMode::PESSIMISTIC_WRITE);
+
             $this->gameFlowService->applyAiMove($game);
             $this->entityManager->flush();
             $connection->commit();
+
+            return $game;
         } catch (\Throwable $exception) {
-            $connection->rollBack();
+            if ($connection->isTransactionActive()) {
+                $connection->rollBack();
+            }
 
             throw $exception;
         }
-
-        return $game;
     }
 }
