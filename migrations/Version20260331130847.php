@@ -34,8 +34,8 @@ final class Version20260331130847 extends AbstractMigration
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs
-        $this->addSql('DROP TABLE games');
         $this->addSql('DROP TABLE moves');
+        $this->addSql('DROP TABLE games');
         $this->addSql('DROP TABLE messenger_messages');
     }
 }
