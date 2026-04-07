@@ -160,20 +160,21 @@ export default class extends Controller {
                 const file = FILES[fileIndex];
                 const square = `${file}${rank}`;
                 const piece = this.boardState[square] ?? '';
-                const isDark = (fileIndex + rank) % 2 === 0;
                 const selectedClass = this.selectedSquare === square ? ' selected' : '';
-                const toneClass = isDark ? ' dark' : ' light';
-                const pieceLabel = piece ? this.pieceLabel(piece) : '';
+                const pieceAssetName = piece ? this.pieceAssetName(piece) : '';
+                const pieceName = piece ? this.pieceName(piece) : 'empty';
+                const pieceMarkup = piece
+                    ? `<span class="chess-piece"><img class="chess-piece-image" src="/chess/pieces/maestro/${pieceAssetName}.svg" alt="${pieceName}" draggable="false"></span>`
+                    : '';
 
                 squares.push(`
                     <button
                         type="button"
-                        class="chess-square${toneClass}${selectedClass}"
+                        class="chess-square${selectedClass}"
                         data-action="click->chess-board#onSquareClick"
                         data-square="${square}"
-                        aria-label="${square} ${pieceLabel}" >
-                        <span class="chess-square-name">${square}</span>
-                        <span class="chess-piece">${pieceLabel}</span>
+                        aria-label="${square} ${pieceName}">
+                        ${pieceMarkup}
                     </button>
                 `);
             }
@@ -218,10 +219,24 @@ export default class extends Controller {
         return piece === piece.toLowerCase();
     }
 
-    pieceLabel(piece) {
+    pieceAssetName(piece) {
         const isWhite = piece === piece.toUpperCase();
 
         return `${isWhite ? 'w' : 'b'}${piece.toUpperCase()}`;
+    }
+
+    pieceName(piece) {
+        const isWhite = piece === piece.toUpperCase();
+        const pieceNames = {
+            K: 'king',
+            Q: 'queen',
+            R: 'rook',
+            B: 'bishop',
+            N: 'knight',
+            P: 'pawn',
+        };
+
+        return `${isWhite ? 'white' : 'black'} ${pieceNames[piece.toUpperCase()] ?? 'piece'}`;
     }
 
     buildUciMove(fromSquare, toSquare) {

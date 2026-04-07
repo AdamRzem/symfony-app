@@ -73,10 +73,11 @@ body {
 .chess-page {
     min-height: 100vh;
     display: grid;
-    grid-template-columns: minmax(320px, 560px) minmax(260px, 360px);
-    gap: 1rem;
-    padding: 1rem;
-    align-items: start;
+    grid-template-columns: minmax(700px, 820px) minmax(250px, 320px);
+    justify-content: center;
+    align-content: center;
+    gap: 1.25rem;
+    padding: 2rem 1rem;
 }
 
 .chess-board-panel,
@@ -86,6 +87,11 @@ body {
     border-radius: 14px;
     box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
     padding: 1rem;
+}
+
+.chess-board-panel {
+    display: grid;
+    gap: 1rem;
 }
 
 .chess-board-header h1 {
@@ -101,7 +107,7 @@ body {
     display: flex;
     flex-wrap: wrap;
     gap: 0.6rem;
-    margin: 1rem 0;
+    margin: 0;
 }
 
 .chess-controls label {
@@ -143,48 +149,58 @@ body {
     font-size: 0.92rem;
 }
 
-.chess-board {
+.chess-board-wrap {
     display: grid;
-    grid-template-columns: repeat(8, minmax(34px, 1fr));
-    border: 2px solid #334155;
+    place-items: center;
+}
+
+.chess-board {
+    width: min(84vmin, 760px);
+    aspect-ratio: 1;
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    grid-template-rows: repeat(8, minmax(0, 1fr));
+    border: 2px solid #4b3a28;
+    border-radius: 10px;
+    overflow: hidden;
+    background-image: url('/chess/boards/8x8_wood.svg');
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.25);
 }
 
 .chess-square {
+    width: 100%;
     aspect-ratio: 1;
     border: 0;
+    padding: 0;
+    background: transparent;
     display: grid;
-    grid-template-rows: auto 1fr;
-    align-items: start;
-    justify-items: start;
-    padding: 0.2rem;
+    place-items: center;
     cursor: pointer;
 }
 
-.chess-square.light {
-    background: #f8fafc;
-}
-
-.chess-square.dark {
-    background: #cbd5e1;
+.chess-square:hover {
+    background: rgba(255, 255, 255, 0.14);
 }
 
 .chess-square.selected {
-    outline: 3px solid #2563eb;
-    outline-offset: -3px;
-}
-
-.chess-square-name {
-    font-size: 0.65rem;
-    color: #475569;
+    box-shadow: inset 0 0 0 4px rgba(37, 99, 235, 0.92);
 }
 
 .chess-piece {
     width: 100%;
+    height: 100%;
     display: grid;
     place-items: center;
-    font-size: 1.05rem;
-    font-weight: 700;
-    align-self: center;
+    pointer-events: none;
+}
+
+.chess-piece-image {
+    width: 86%;
+    height: 86%;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 2px rgba(15, 23, 42, 0.4));
 }
 
 .chess-side-panel h2 {
@@ -196,7 +212,7 @@ body {
     padding-left: 1rem;
     display: grid;
     gap: 0.35rem;
-    max-height: 360px;
+    max-height: 420px;
     overflow: auto;
 }
 
@@ -213,8 +229,19 @@ body {
     word-break: break-all;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
     .chess-page {
         grid-template-columns: 1fr;
+        justify-items: center;
+        align-content: start;
+    }
+
+    .chess-board-panel,
+    .chess-side-panel {
+        width: min(100%, 760px);
+    }
+
+    .chess-board {
+        width: min(92vw, 760px);
     }
 }
