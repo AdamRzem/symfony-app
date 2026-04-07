@@ -12,6 +12,9 @@ use Symfony\Component\Process\Process;
 
 final class StockfishClient
 {
+    private const int PROCESS_TIMEOUT_SECONDS = 12;
+    private const int POLL_INTERVAL_MICROSECONDS = 10_000;
+
     public function __construct(
         private readonly string $binaryPath,
         private readonly int $defaultMoveTimeMs,
@@ -108,7 +111,7 @@ final class StockfishClient
 
         $process = new Process([$this->binaryPath]);
         $process->setInput(implode("\n", $sessionCommands)."\n");
-        $process->setTimeout(12);
+        $process->setTimeout(self::PROCESS_TIMEOUT_SECONDS);
 
         try {
             $process->mustRun();
@@ -168,7 +171,7 @@ final class StockfishClient
             }
 
             $output = '';
-            $deadline = microtime(true) + 12.0;
+            $deadline = microtime(true) + self::PROCESS_TIMEOUT_SECONDS;
 
             while (microtime(true) < $deadline) {
                 $chunk = fread($pipes[1], 4096);
@@ -185,7 +188,7 @@ final class StockfishClient
                     break;
                 }
 
-                usleep(10_000);
+                usleep(self::POLL_INTERVAL_MICROSECONDS);
             }
 
             fwrite($pipes[0], "quit\n");
