@@ -12,6 +12,9 @@ use Symfony\Component\Process\Process;
 
 final class StockfishClient
 {
+    private const int PROCESS_TIMEOUT_SECONDS = 12;
+    private const int POLL_INTERVAL_MICROSECONDS = 10_000;
+
     public function __construct(
         private readonly string $binaryPath,
         private readonly int $defaultMoveTimeMs,
@@ -73,10 +76,10 @@ final class StockfishClient
     {
         $thinkTime = $moveTimeMs ?? $this->defaultMoveTimeMs;
 
-        $output = $this->runSession([
-            sprintf('position fen %s', $this->normalizeFen($fen)),
-            sprintf('go movetime %d', max(1, $thinkTime)),
-        ]);
+        $output = $this->runBestMoveSearch(
+            $this->normalizeFen($fen),
+            max(1, $thinkTime),
+        );
 
         if (!preg_match('/^bestmove\s+(\S+)/mi', $output, $matches)) {
             throw new EngineFailureException('Unable to extract bestmove from Stockfish output.');
@@ -96,13 +99,7 @@ final class StockfishClient
      */
     private function runSession(array $commands): string
     {
-        if ('' === trim($this->binaryPath)) {
-            throw new EngineUnavailableException('CHESS_STOCKFISH_PATH is empty.');
-        }
-
-        if (!is_file($this->binaryPath)) {
-            throw new EngineUnavailableException(sprintf('Stockfish binary does not exist: %s', $this->binaryPath));
-        }
+        $this->validateBinaryPath();
 
         $sessionCommands = [
             'uci',
@@ -114,7 +111,7 @@ final class StockfishClient
 
         $process = new Process([$this->binaryPath]);
         $process->setInput(implode("\n", $sessionCommands)."\n");
-        $process->setTimeout(12);
+        $process->setTimeout(self::PROCESS_TIMEOUT_SECONDS);
 
         try {
             $process->mustRun();
@@ -133,6 +130,99 @@ final class StockfishClient
         }
 
         return $process->getOutput()."\n".$process->getErrorOutput();
+    }
+
+    /**
+     * Runs Stockfish interactively for a `go movetime` search, waiting for the
+     * `bestmove` response before sending `quit`.  Unlike `runSession()`, this
+     * keeps stdin open so that the `quit` command is only delivered *after*
+     * Stockfish has finished thinking, preventing premature search abortion.
+     */
+    private function runBestMoveSearch(string $normalizedFen, int $thinkTimeMs): string
+    {
+        $this->validateBinaryPath();
+
+        $descriptorSpec = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+
+        $proc = proc_open($this->binaryPath, $descriptorSpec, $pipes);
+
+        if (!is_resource($proc)) {
+            throw new EngineUnavailableException('Failed to start Stockfish process.');
+        }
+
+        try {
+            stream_set_blocking($pipes[1], false);
+            stream_set_blocking($pipes[2], false);
+
+            $commands = [
+                'uci',
+                sprintf('setoption name Skill Level value %d', max(0, min(20, $this->skillLevel))),
+                'isready',
+                sprintf('position fen %s', $normalizedFen),
+                sprintf('go movetime %d', $thinkTimeMs),
+            ];
+
+            foreach ($commands as $command) {
+                fwrite($pipes[0], $command."\n");
+            }
+
+            $output = '';
+            $bestMoveFound = false;
+            $deadline = microtime(true) + self::PROCESS_TIMEOUT_SECONDS;
+
+            while (microtime(true) < $deadline) {
+                $chunk = fread($pipes[1], 4096);
+
+                if (false !== $chunk && '' !== $chunk) {
+                    $output .= $chunk;
+                }
+
+                if (preg_match('/^bestmove\s/mi', $output)) {
+                    $bestMoveFound = true;
+                    break;
+                }
+
+                if (feof($pipes[1])) {
+                    break;
+                }
+
+                usleep(self::POLL_INTERVAL_MICROSECONDS);
+            }
+
+            fwrite($pipes[0], "quit\n");
+            fclose($pipes[0]);
+
+            if (!$bestMoveFound && microtime(true) >= $deadline) {
+                throw new EngineUnavailableException('Stockfish search timed out waiting for bestmove.');
+            }
+
+            $errOutput = stream_get_contents($pipes[2]) ?: '';
+
+            return $output."\n".$errOutput;
+        } finally {
+            foreach ($pipes as $pipe) {
+                if (is_resource($pipe)) {
+                    fclose($pipe);
+                }
+            }
+
+            proc_close($proc);
+        }
+    }
+
+    private function validateBinaryPath(): void
+    {
+        if ('' === trim($this->binaryPath)) {
+            throw new EngineUnavailableException('CHESS_STOCKFISH_PATH is empty.');
+        }
+
+        if (!is_file($this->binaryPath)) {
+            throw new EngineUnavailableException(sprintf('Stockfish binary does not exist: %s', $this->binaryPath));
+        }
     }
 
     private function normalizeFen(string $fen): string
