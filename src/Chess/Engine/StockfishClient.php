@@ -73,10 +73,10 @@ final class StockfishClient
     {
         $thinkTime = $moveTimeMs ?? $this->defaultMoveTimeMs;
 
-        $output = $this->runSession([
-            sprintf('position fen %s', $this->normalizeFen($fen)),
-            sprintf('go movetime %d', max(1, $thinkTime)),
-        ]);
+        $output = $this->runBestMoveSearch(
+            $this->normalizeFen($fen),
+            max(1, $thinkTime),
+        );
 
         if (!preg_match('/^bestmove\s+(\S+)/mi', $output, $matches)) {
             throw new EngineFailureException('Unable to extract bestmove from Stockfish output.');
@@ -96,13 +96,7 @@ final class StockfishClient
      */
     private function runSession(array $commands): string
     {
-        if ('' === trim($this->binaryPath)) {
-            throw new EngineUnavailableException('CHESS_STOCKFISH_PATH is empty.');
-        }
-
-        if (!is_file($this->binaryPath)) {
-            throw new EngineUnavailableException(sprintf('Stockfish binary does not exist: %s', $this->binaryPath));
-        }
+        $this->validateBinaryPath();
 
         $sessionCommands = [
             'uci',
@@ -133,6 +127,94 @@ final class StockfishClient
         }
 
         return $process->getOutput()."\n".$process->getErrorOutput();
+    }
+
+    /**
+     * Runs Stockfish interactively for a `go movetime` search, waiting for the
+     * `bestmove` response before sending `quit`.  Unlike `runSession()`, this
+     * keeps stdin open so that the `quit` command is only delivered *after*
+     * Stockfish has finished thinking, preventing premature search abortion.
+     */
+    private function runBestMoveSearch(string $normalizedFen, int $thinkTimeMs): string
+    {
+        $this->validateBinaryPath();
+
+        $descriptorSpec = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+
+        $proc = proc_open($this->binaryPath, $descriptorSpec, $pipes);
+
+        if (!is_resource($proc)) {
+            throw new EngineUnavailableException('Failed to start Stockfish process.');
+        }
+
+        try {
+            stream_set_blocking($pipes[1], false);
+            stream_set_blocking($pipes[2], false);
+
+            $commands = [
+                'uci',
+                sprintf('setoption name Skill Level value %d', max(0, min(20, $this->skillLevel))),
+                'isready',
+                sprintf('position fen %s', $normalizedFen),
+                sprintf('go movetime %d', $thinkTimeMs),
+            ];
+
+            foreach ($commands as $command) {
+                fwrite($pipes[0], $command."\n");
+            }
+
+            $output = '';
+            $deadline = microtime(true) + 12.0;
+
+            while (microtime(true) < $deadline) {
+                $chunk = fread($pipes[1], 4096);
+
+                if (false !== $chunk && '' !== $chunk) {
+                    $output .= $chunk;
+                }
+
+                if (preg_match('/^bestmove\s/mi', $output)) {
+                    break;
+                }
+
+                if (feof($pipes[1])) {
+                    break;
+                }
+
+                usleep(10_000);
+            }
+
+            fwrite($pipes[0], "quit\n");
+            fclose($pipes[0]);
+            unset($pipes[0]);
+
+            $errOutput = stream_get_contents($pipes[2]) ?: '';
+
+            return $output."\n".$errOutput;
+        } finally {
+            foreach ($pipes as $pipe) {
+                if (is_resource($pipe)) {
+                    fclose($pipe);
+                }
+            }
+
+            proc_close($proc);
+        }
+    }
+
+    private function validateBinaryPath(): void
+    {
+        if ('' === trim($this->binaryPath)) {
+            throw new EngineUnavailableException('CHESS_STOCKFISH_PATH is empty.');
+        }
+
+        if (!is_file($this->binaryPath)) {
+            throw new EngineUnavailableException(sprintf('Stockfish binary does not exist: %s', $this->binaryPath));
+        }
     }
 
     private function normalizeFen(string $fen): string
