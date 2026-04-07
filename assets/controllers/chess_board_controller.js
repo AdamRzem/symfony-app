@@ -3,7 +3,7 @@ import { Controller } from '@hotwired/stimulus';
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
 export default class extends Controller {
-    static targets = ['board', 'moves', 'error', 'status', 'result', 'turn', 'gameId', 'fen', 'aiMoveButton', 'aiColor'];
+    static targets = ['board', 'moves', 'error', 'status', 'result', 'turn', 'fen', 'aiColor'];
     static values = {
         apiBase: String,
     };
@@ -28,32 +28,7 @@ export default class extends Controller {
 
             this.updateGame(game);
             await this.loadMoves();
-
-            // If AI is configured as white, user can ask AI to make the opening move.
-            if (this.game && this.game.turn === this.game.aiColor) {
-                this.aiMoveButtonTarget.disabled = false;
-            }
-        } catch (error) {
-            this.handleError(error);
-        }
-    }
-
-    async makeAiMove() {
-        if (!this.game) {
-            this.setError('Create a game first.');
-
-            return;
-        }
-
-        this.setError('');
-
-        try {
-            const game = await this.requestJson(`${this.apiBaseValue}/${this.game.id}/ai-move`, {
-                method: 'POST',
-            });
-
-            this.updateGame(game);
-            await this.loadMoves();
+            await this.maybeAutoPlayAi();
         } catch (error) {
             this.handleError(error);
         }
@@ -113,14 +88,37 @@ export default class extends Controller {
             this.setError('');
             this.updateGame(game);
             await this.loadMoves();
+            await this.maybeAutoPlayAi();
         } catch (error) {
             this.handleError(error);
         }
     }
 
+    async maybeAutoPlayAi() {
+        if (!this.game) {
+            return;
+        }
+
+        if (!['in_progress', 'check'].includes(this.game.status)) {
+            return;
+        }
+
+        if (this.game.turn !== this.game.aiColor) {
+            return;
+        }
+
+        const game = await this.requestJson(`${this.apiBaseValue}/${this.game.id}/ai-move`, {
+            method: 'POST',
+        });
+
+        this.updateGame(game);
+        await this.loadMoves();
+    }
+
     async loadMoves() {
         if (!this.game) {
             this.movesTarget.innerHTML = '';
+            this.movesTarget.scrollTop = 0;
 
             return;
         }
@@ -130,6 +128,7 @@ export default class extends Controller {
 
         if (moves.length === 0) {
             this.movesTarget.innerHTML = '<li>No moves yet.</li>';
+            this.movesTarget.scrollTop = this.movesTarget.scrollHeight;
 
             return;
         }
@@ -137,17 +136,16 @@ export default class extends Controller {
         this.movesTarget.innerHTML = moves
             .map((move) => `<li>#${move.ply} ${move.uci}${move.isCheckmate ? ' (mate)' : move.isCheck ? ' (check)' : ''}</li>`)
             .join('');
+        this.movesTarget.scrollTop = this.movesTarget.scrollHeight;
     }
 
     updateGame(game) {
         this.game = game;
         this.boardState = this.parseFen(game.fen);
-        this.gameIdTarget.textContent = game.id;
         this.turnTarget.textContent = game.turn;
         this.statusTarget.textContent = game.status;
         this.resultTarget.textContent = game.result;
         this.fenTarget.textContent = `FEN: ${game.fen}`;
-        this.aiMoveButtonTarget.disabled = game.turn !== game.aiColor;
         this.selectedSquare = null;
         this.renderBoard();
     }
