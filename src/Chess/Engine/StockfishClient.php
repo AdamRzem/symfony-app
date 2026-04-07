@@ -171,6 +171,7 @@ final class StockfishClient
             }
 
             $output = '';
+            $bestMoveFound = false;
             $deadline = microtime(true) + self::PROCESS_TIMEOUT_SECONDS;
 
             while (microtime(true) < $deadline) {
@@ -181,6 +182,7 @@ final class StockfishClient
                 }
 
                 if (preg_match('/^bestmove\s/mi', $output)) {
+                    $bestMoveFound = true;
                     break;
                 }
 
@@ -193,7 +195,10 @@ final class StockfishClient
 
             fwrite($pipes[0], "quit\n");
             fclose($pipes[0]);
-            unset($pipes[0]);
+
+            if (!$bestMoveFound && microtime(true) >= $deadline) {
+                throw new EngineUnavailableException('Stockfish search timed out waiting for bestmove.');
+            }
 
             $errOutput = stream_get_contents($pipes[2]) ?: '';
 
