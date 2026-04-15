@@ -69,6 +69,17 @@ export default class extends Controller {
         }
 
         if (piece && this.pieceBelongsToTurn(piece)) {
+            const selectedPiece = this.boardState[this.selectedSquare] ?? '';
+            
+            // Handle castling attempt (King -> Rook)
+            if (selectedPiece.toLowerCase() === 'k' && piece.toLowerCase() === 'r') {
+                const move = this.buildCastlingMove(this.selectedSquare, square);
+                if (move) {
+                    this.executeMove(move);
+                    return;
+                }
+            }
+
             this.selectedSquare = square;
             this.renderBoard();
 
@@ -76,6 +87,10 @@ export default class extends Controller {
         }
 
         const move = this.buildUciMove(this.selectedSquare, square);
+        this.executeMove(move);
+    }
+
+    async executeMove(move) {
         this.selectedSquare = null;
         this.renderBoard();
 
@@ -235,6 +250,15 @@ export default class extends Controller {
         };
 
         return `${isWhite ? 'white' : 'black'} ${pieceNames[piece.toUpperCase()] ?? 'piece'}`;
+    }
+
+    buildCastlingMove(kingSquare, rookSquare) {
+        if (kingSquare === 'e1' && rookSquare === 'h1') return 'e1g1';
+        if (kingSquare === 'e1' && rookSquare === 'a1') return 'e1c1';
+        if (kingSquare === 'e8' && rookSquare === 'h8') return 'e8g8';
+        if (kingSquare === 'e8' && rookSquare === 'a8') return 'e8c8';
+
+        return null;
     }
 
     buildUciMove(fromSquare, toSquare) {
