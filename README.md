@@ -18,7 +18,7 @@ Build a local chess application with:
 - [x] Phase 3: Rules engine and AI move flow
 - [x] Phase 4: REST controllers and app services
 - [x] Phase 5: Web UI (board, move list, game status)
-- [ ] Phase 6: Unit/integration/functional tests
+- [x] Phase 6: Unit/integration/functional tests
 
 ## Phase 1 Deliverables
 Implemented and validated:

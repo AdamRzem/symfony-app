@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Controller\Api;
 
+use App\Entity\Enum\GameStatus;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -19,11 +20,6 @@ final class GameControllerTest extends WebTestCase
     {
         $this->client = static::createClient();
         $this->ensureSchemaCreated();
-        $this->client->request('GET', '/api/v1/engine/health');
-
-        if (200 !== $this->client->getResponse()->getStatusCode()) {
-            self::markTestSkipped('Stockfish engine is not ready for API tests.');
-        }
     }
 
     private function ensureSchemaCreated(): void
@@ -61,6 +57,8 @@ final class GameControllerTest extends WebTestCase
 
     public function testMoveAndAiMoveFlow(): void
     {
+        $this->ensureEngineReady();
+
         $createPayload = $this->requestJson($this->client, 'POST', '/api/v1/games', [
             'aiColor' => 'black',
         ]);
@@ -82,6 +80,8 @@ final class GameControllerTest extends WebTestCase
 
     public function testInvalidMoveReturns422(): void
     {
+        $this->ensureEngineReady();
+
         $createPayload = $this->requestJson($this->client, 'POST', '/api/v1/games', [
             'aiColor' => 'black',
         ]);
@@ -97,6 +97,8 @@ final class GameControllerTest extends WebTestCase
 
     public function testPlayerMoveRejectedWhenAiStartsAsWhite(): void
     {
+        $this->ensureEngineReady();
+
         $createPayload = $this->requestJson($this->client, 'POST', '/api/v1/games', [
             'aiColor' => 'white',
         ]);
@@ -112,6 +114,8 @@ final class GameControllerTest extends WebTestCase
 
     public function testBadPayloadReturns400(): void
     {
+        $this->ensureEngineReady();
+
         $createPayload = $this->requestJson($this->client, 'POST', '/api/v1/games', [
             'aiColor' => 'black',
         ]);
@@ -143,6 +147,8 @@ final class GameControllerTest extends WebTestCase
 
     public function testMoveRejectsUnknownFieldEvenWhenUciPresent(): void
     {
+        $this->ensureEngineReady();
+
         $createPayload = $this->requestJson($this->client, 'POST', '/api/v1/games', [
             'aiColor' => 'black',
         ]);
@@ -155,6 +161,167 @@ final class GameControllerTest extends WebTestCase
 
         self::assertSame(400, $this->client->getResponse()->getStatusCode());
         self::assertSame('BAD_PAYLOAD', $error['error']['code']);
+    }
+
+    public function testCreateGameResponseMatchesContractShape(): void
+    {
+        $payload = $this->requestJson($this->client, 'POST', '/api/v1/games', [
+            'aiColor' => 'black',
+        ]);
+
+        self::assertSame(201, $this->client->getResponse()->getStatusCode());
+        $this->assertGameResponseShape($payload);
+        self::assertNull($payload['lastMove']);
+    }
+
+    public function testGetUnknownGameReturns404ContractError(): void
+    {
+        $error = $this->requestJson($this->client, 'GET', '/api/v1/games/00000000-0000-0000-0000-000000000000');
+
+        self::assertSame(404, $this->client->getResponse()->getStatusCode());
+        self::assertSame('GAME_NOT_FOUND', $error['error']['code']);
+    }
+
+    public function testListMovesReturnsContractShape(): void
+    {
+        $this->ensureEngineReady();
+
+        $createPayload = $this->requestJson($this->client, 'POST', '/api/v1/games', ['aiColor' => 'black']);
+        $gameId = $createPayload['id'];
+
+        $this->requestJson($this->client, 'POST', sprintf('/api/v1/games/%s/moves', $gameId), [
+            'uciMove' => 'e2e4',
+        ]);
+
+        $movesPayload = $this->requestJson($this->client, 'GET', sprintf('/api/v1/games/%s/moves', $gameId));
+
+        self::assertSame(200, $this->client->getResponse()->getStatusCode());
+        self::assertArrayHasKey('moves', $movesPayload);
+        self::assertIsArray($movesPayload['moves']);
+        self::assertNotEmpty($movesPayload['moves']);
+        $this->assertMoveResponseShape($movesPayload['moves'][0]);
+    }
+
+    public function testListMovesUnknownGameReturns404(): void
+    {
+        $error = $this->requestJson($this->client, 'GET', '/api/v1/games/00000000-0000-0000-0000-000000000000/moves');
+
+        self::assertSame(404, $this->client->getResponse()->getStatusCode());
+        self::assertSame('GAME_NOT_FOUND', $error['error']['code']);
+    }
+
+    public function testMoveOnFinishedGameReturns409(): void
+    {
+        $this->ensureEngineReady();
+
+        $createPayload = $this->requestJson($this->client, 'POST', '/api/v1/games', [
+            'aiColor' => 'black',
+        ]);
+        $gameId = $createPayload['id'];
+
+        /** @var EntityManagerInterface $entityManager */
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        $game = $entityManager->find(\App\Entity\Game::class, $gameId);
+        self::assertNotNull($game);
+        $game->setStatus(GameStatus::Checkmate);
+        $entityManager->flush();
+
+        $error = $this->requestJson($this->client, 'POST', sprintf('/api/v1/games/%s/moves', $gameId), [
+            'uciMove' => 'e2e4',
+        ]);
+
+        self::assertSame(409, $this->client->getResponse()->getStatusCode());
+        self::assertSame('GAME_FINISHED', $error['error']['code']);
+    }
+
+    public function testAiMoveOnFinishedGameReturns409(): void
+    {
+        $this->ensureEngineReady();
+
+        $createPayload = $this->requestJson($this->client, 'POST', '/api/v1/games', [
+            'aiColor' => 'white',
+        ]);
+        $gameId = $createPayload['id'];
+
+        /** @var EntityManagerInterface $entityManager */
+        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
+        $game = $entityManager->find(\App\Entity\Game::class, $gameId);
+        self::assertNotNull($game);
+        $game->setStatus(GameStatus::Checkmate);
+        $entityManager->flush();
+
+        $error = $this->requestJson($this->client, 'POST', sprintf('/api/v1/games/%s/ai-move', $gameId));
+
+        self::assertSame(409, $this->client->getResponse()->getStatusCode());
+        self::assertSame('GAME_FINISHED', $error['error']['code']);
+    }
+
+    public function testAiMoveWhenItIsNotAiTurnReturns422(): void
+    {
+        $this->ensureEngineReady();
+
+        $createPayload = $this->requestJson($this->client, 'POST', '/api/v1/games', [
+            'aiColor' => 'black',
+        ]);
+        $gameId = $createPayload['id'];
+
+        $error = $this->requestJson($this->client, 'POST', sprintf('/api/v1/games/%s/ai-move', $gameId));
+
+        self::assertSame(422, $this->client->getResponse()->getStatusCode());
+        self::assertSame('INVALID_MOVE', $error['error']['code']);
+    }
+
+    public function testEngineHealthEndpointReturnsContractShapeWhenReady(): void
+    {
+        $this->ensureEngineReady();
+
+        $payload = $this->requestJson($this->client, 'GET', '/api/v1/engine/health');
+
+        self::assertSame(200, $this->client->getResponse()->getStatusCode());
+        self::assertSame('stockfish', $payload['engine']);
+        self::assertSame('ready', $payload['status']);
+        self::assertArrayHasKey('version', $payload);
+    }
+
+    private function ensureEngineReady(): void
+    {
+        $this->client->request('GET', '/api/v1/engine/health');
+
+        if (200 !== $this->client->getResponse()->getStatusCode()) {
+            self::markTestSkipped('Stockfish engine is not ready for this API test.');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function assertGameResponseShape(array $payload): void
+    {
+        foreach (['id', 'fen', 'turn', 'status', 'result', 'aiColor', 'createdAt', 'updatedAt', 'lastMove'] as $key) {
+            self::assertArrayHasKey($key, $payload);
+        }
+
+        self::assertMatchesRegularExpression('/^[a-f0-9\-]{36}$/', (string) $payload['id']);
+        self::assertContains($payload['turn'], ['white', 'black']);
+        self::assertContains($payload['status'], ['in_progress', 'check', 'checkmate', 'stalemate', 'draw', 'resigned']);
+        self::assertContains($payload['result'], ['ongoing', 'white_win', 'black_win', 'draw']);
+        self::assertContains($payload['aiColor'], ['white', 'black']);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function assertMoveResponseShape(array $payload): void
+    {
+        foreach (['id', 'ply', 'uci', 'promotion', 'san', 'fenAfter', 'isCheck', 'isCheckmate', 'createdAt'] as $key) {
+            self::assertArrayHasKey($key, $payload);
+        }
+
+        self::assertMatchesRegularExpression('/^[a-f0-9\-]{36}$/', (string) $payload['id']);
+        self::assertIsInt($payload['ply']);
+        self::assertMatchesRegularExpression('/^[a-h][1-8][a-h][1-8][qrbn]?$/', (string) $payload['uci']);
+        self::assertIsBool($payload['isCheck']);
+        self::assertIsBool($payload['isCheckmate']);
     }
 
     /**
