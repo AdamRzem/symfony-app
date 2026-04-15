@@ -2,7 +2,7 @@
 
 Local non-commercial chess project built with Symfony, focused on a contract-first backend and a minimal web UI.
 
-Next phases will be implemented after Easte
+Tests and optymalization will be added in near future (most probably)
 
 ## Goal
 Build a local chess application with:
