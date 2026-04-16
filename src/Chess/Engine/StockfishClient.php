@@ -35,26 +35,31 @@ final class StockfishClient
         return $this->extractLegalMoves($output);
     }
 
-    public function getFenAfterMove(string $fen, string $uciMove): string
-    {
-        $output = $this->runSession([
-            sprintf('position fen %s moves %s', $this->normalizeFen($fen), strtolower(trim($uciMove))),
-            'd',
-        ]);
-
-        $resultFen = $this->extractFen($output);
-
-        if (null === $resultFen) {
-            throw new EngineFailureException('Unable to extract resulting FEN from Stockfish output.');
-        }
-
-        return $resultFen;
-    }
-
     public function inspectPosition(string $fen): PositionSnapshot
     {
         $output = $this->runSession([
             sprintf('position fen %s', $this->normalizeFen($fen)),
+            'd',
+            'go perft 1',
+        ]);
+
+        $positionFen = $this->extractFen($output);
+
+        if (null === $positionFen) {
+            throw new EngineFailureException('Unable to extract FEN from Stockfish position inspection output.');
+        }
+
+        return new PositionSnapshot(
+            $positionFen,
+            $this->extractCheckers($output),
+            $this->extractLegalMoves($output),
+        );
+    }
+
+    public function inspectPositionAfterMove(string $fen, string $move): PositionSnapshot
+    {
+        $output = $this->runSession([
+            sprintf('position fen %s moves %s', $this->normalizeFen($fen), strtolower(trim($move))),
             'd',
             'go perft 1',
         ]);

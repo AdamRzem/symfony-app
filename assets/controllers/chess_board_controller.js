@@ -12,6 +12,9 @@ export default class extends Controller {
         this.game = null;
         this.selectedSquare = null;
         this.boardState = {};
+        this.isAiThinking = false;
+        this.aiRequestToken = 0;
+        this.isMovePending = false;
         this.renderBoard();
         this.setError('');
     }
@@ -28,16 +31,17 @@ export default class extends Controller {
 
             this.updateGame(game);
             await this.loadMoves();
-            await this.maybeAutoPlayAi();
+            this.maybeAutoPlayAi();
         } catch (error) {
             this.handleError(error);
         }
     }
 
     async onSquareClick(event) {
-        if (!this.game) {
-            this.setError('Create a game first.');
-
+        if (!this.game || this.isAiThinking || this.isMovePending) {
+            if (!this.game) {
+                this.setError('Create a game first.');
+            }
             return;
         }
 
@@ -90,9 +94,67 @@ export default class extends Controller {
         this.executeMove(move);
     }
 
-    async executeMove(move) {
+    applyOptimisticMove(uciMove) {
+        const fromSquare = uciMove.slice(0, 2);
+        const toSquare = uciMove.slice(2, 4);
+        const promotion = uciMove.length === 5 ? uciMove[4] : null;
+        
+        const piece = this.boardState[fromSquare];
+        
+        // Basic castling
+        if (piece && piece.toLowerCase() === 'k') {
+            const isWhite = piece === 'K';
+            if (fromSquare === 'e1' && toSquare === 'g1') {
+                delete this.boardState['h1'];
+                this.boardState['f1'] = isWhite ? 'R' : 'r';
+            } else if (fromSquare === 'e1' && toSquare === 'c1') {
+                delete this.boardState['a1'];
+                this.boardState['d1'] = isWhite ? 'R' : 'r';
+            } else if (fromSquare === 'e8' && toSquare === 'g8') {
+                delete this.boardState['h8'];
+                this.boardState['f8'] = isWhite ? 'R' : 'r';
+            } else if (fromSquare === 'e8' && toSquare === 'c8') {
+                delete this.boardState['a8'];
+                this.boardState['d8'] = isWhite ? 'R' : 'r';
+            }
+        }
+
+        // En passant
+        if (piece && piece.toLowerCase() === 'p') {
+            const isDiagonalMove = fromSquare[0] !== toSquare[0];
+            const isCapture = this.boardState[toSquare] !== undefined;
+            if (isDiagonalMove && !isCapture) {
+                const capturedPawnSquare = `${toSquare[0]}${fromSquare[1]}`;
+                delete this.boardState[capturedPawnSquare];
+            }
+        }
+        
+        delete this.boardState[fromSquare];
+        
+        if (promotion) {
+            this.boardState[toSquare] = piece === piece.toUpperCase() ? promotion.toUpperCase() : promotion.toLowerCase();
+        } else {
+            this.boardState[toSquare] = piece;
+        }
+        
         this.selectedSquare = null;
         this.renderBoard();
+    }
+
+    async executeMove(move) {
+        if (this.isMovePending) return;
+        this.isMovePending = true;
+
+        const gameIdAtRequestStart = this.game.id;
+
+        // Snapshot
+        const snapshot = {
+            game: { ...this.game },
+            boardState: { ...this.boardState },
+            selectedSquare: this.selectedSquare,
+        };
+        
+        this.applyOptimisticMove(move);
 
         try {
             const game = await this.requestJson(`${this.apiBaseValue}/${this.game.id}/moves`, {
@@ -100,12 +162,34 @@ export default class extends Controller {
                 body: JSON.stringify({ uciMove: move }),
             });
 
+            if (this.game && this.game.id !== gameIdAtRequestStart) return;
+
             this.setError('');
             this.updateGame(game);
-            await this.loadMoves();
-            await this.maybeAutoPlayAi();
+            this.maybeAutoPlayAi();
         } catch (error) {
+            if (this.game && this.game.id !== gameIdAtRequestStart) return;
+
+            // Restore snapshot
+            this.game = snapshot.game;
+            this.boardState = snapshot.boardState;
+            this.selectedSquare = snapshot.selectedSquare;
+            this.renderBoard();
+            
             this.handleError(error);
+            
+            // Resync game state after ambiguous failures
+            try {
+                const syncedGame = await this.requestJson(`${this.apiBaseValue}/${this.game.id}`);
+                if (this.game && this.game.id === gameIdAtRequestStart) {
+                    this.updateGame(syncedGame);
+                    await this.loadMoves();
+                }
+            } catch (syncError) {
+                // Ignore sync errors
+            }
+        } finally {
+            this.isMovePending = false;
         }
     }
 
@@ -122,12 +206,30 @@ export default class extends Controller {
             return;
         }
 
-        const game = await this.requestJson(`${this.apiBaseValue}/${this.game.id}/ai-move`, {
-            method: 'POST',
-        });
+        const currentToken = ++this.aiRequestToken;
+        this.isAiThinking = true;
+        this.statusTarget.textContent = 'AI is thinking...';
+        
+        const gameIdAtRequestStart = this.game.id;
 
-        this.updateGame(game);
-        await this.loadMoves();
+        try {
+            const game = await this.requestJson(`${this.apiBaseValue}/${this.game.id}/ai-move`, {
+                method: 'POST',
+            });
+            
+            if (this.game && this.game.id !== gameIdAtRequestStart) return;
+            
+            this.updateGame(game);
+        } catch (error) {
+            if (this.game && this.game.id !== gameIdAtRequestStart) return;
+            
+            this.setError('AI error. Try moving manually or restart game.');
+            this.statusTarget.textContent = this.game.status;
+        } finally {
+            if (this.aiRequestToken === currentToken) {
+                this.isAiThinking = false;
+            }
+        }
     }
 
     async loadMoves() {
@@ -138,7 +240,11 @@ export default class extends Controller {
             return;
         }
 
+        const expectedGameId = this.game.id;
         const payload = await this.requestJson(`${this.apiBaseValue}/${this.game.id}/moves`);
+        
+        if (this.game && this.game.id !== expectedGameId) return;
+
         const moves = payload.moves ?? [];
 
         if (moves.length === 0) {
@@ -158,11 +264,34 @@ export default class extends Controller {
         this.game = game;
         this.boardState = this.parseFen(game.fen);
         this.turnTarget.textContent = game.turn;
+        
         this.statusTarget.textContent = game.status;
+        
         this.resultTarget.textContent = game.result;
         this.fenTarget.textContent = `FEN: ${game.fen}`;
         this.selectedSquare = null;
         this.renderBoard();
+
+        if (game.lastMove) {
+            this.appendMove(game.lastMove);
+        }
+    }
+
+    appendMove(move) {
+        if (!move) return;
+        
+        if (this.movesTarget.innerHTML.includes('No moves yet.')) {
+            this.movesTarget.innerHTML = '';
+        }
+
+        const lastLi = this.movesTarget.lastElementChild;
+        if (lastLi && lastLi.textContent.startsWith(`#${move.ply} `)) {
+            return;
+        }
+
+        const newHtml = `<li>#${move.ply} ${move.uci}${move.isCheckmate ? ' (mate)' : move.isCheck ? ' (check)' : ''}</li>`;
+        this.movesTarget.insertAdjacentHTML('beforeend', newHtml);
+        this.movesTarget.scrollTop = this.movesTarget.scrollHeight;
     }
 
     renderBoard() {

@@ -26,8 +26,7 @@ final class StockfishRulesEngine implements ChessRulesEngineInterface
             return MoveValidationResult::illegal($legalMoves);
         }
 
-        $fenAfterMove = $this->stockfishClient->getFenAfterMove($fen, $normalizedMove);
-        $positionAfterMove = $this->stockfishClient->inspectPosition($fenAfterMove);
+        $positionAfterMove = $this->stockfishClient->inspectPositionAfterMove($fen, $normalizedMove);
         [$status, $isCheck, $isCheckmate, $isStalemate] = $this->deriveStatus($positionAfterMove);
 
         return MoveValidationResult::legal(
